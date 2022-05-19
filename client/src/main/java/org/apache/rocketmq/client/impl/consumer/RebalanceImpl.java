@@ -219,6 +219,7 @@ public abstract class RebalanceImpl {
             for (final Map.Entry<String, SubscriptionData> entry : subTable.entrySet()) {
                 final String topic = entry.getKey();
                 try {
+                    //k1 客户端负载： 真正进行负载都是根据topic来进行的
                     this.rebalanceByTopic(topic, isOrder);
                 } catch (Throwable e) {
                     if (!topic.startsWith(MixAll.RETRY_GROUP_TOPIC_PREFIX)) {
@@ -237,6 +238,7 @@ public abstract class RebalanceImpl {
 
     private void rebalanceByTopic(final String topic, final boolean isOrder) {
         switch (messageModel) {
+            // 广播模式： 不需要负载，每个消费者都需要消费 只需要更新负载信息
             case BROADCASTING: {
                 Set<MessageQueue> mqSet = this.topicSubscribeInfoTable.get(topic);
                 if (mqSet != null) {
@@ -254,8 +256,11 @@ public abstract class RebalanceImpl {
                 }
                 break;
             }
+            // 客户端集群负载方法
             case CLUSTERING: {
+                //订阅的主题
                 Set<MessageQueue> mqSet = this.topicSubscribeInfoTable.get(topic);
+                //客户端Id集合
                 List<String> cidAll = this.mQClientFactory.findConsumerIdList(topic, consumerGroup);
                 if (null == mqSet) {
                     if (!topic.startsWith(MixAll.RETRY_GROUP_TOPIC_PREFIX)) {
@@ -270,14 +275,15 @@ public abstract class RebalanceImpl {
                 if (mqSet != null && cidAll != null) {
                     List<MessageQueue> mqAll = new ArrayList<MessageQueue>();
                     mqAll.addAll(mqSet);
-
+                    //排序后才能保证消费者负载策略相对稳定
                     Collections.sort(mqAll);
                     Collections.sort(cidAll);
-
+                    //根据负载策略AllocateMessageQueueStrategy 有五种实现
                     AllocateMessageQueueStrategy strategy = this.allocateMessageQueueStrategy;
 
                     List<MessageQueue> allocateResult = null;
                     try {
+                        //按照负载策略进行分配，返回当前消费者实际订阅的MessageQueue集合
                         allocateResult = strategy.allocate(
                             this.consumerGroup,
                             this.mQClientFactory.getClientId(),
@@ -295,6 +301,7 @@ public abstract class RebalanceImpl {
                     }
 
                     boolean changed = this.updateProcessQueueTableInRebalance(topic, allocateResultSet, isOrder);
+                    //如果负载情况有变化 需要通知broker
                     if (changed) {
                         log.info(
                             "rebalanced result changed. allocateMessageQueueStrategyName={}, group={}, topic={}, clientId={}, mqAllSize={}, cidAllSize={}, rebalanceResultSize={}, rebalanceResultSet={}",
