@@ -412,6 +412,7 @@ public class ConsumeMessageOrderlyService implements ConsumeMessageService {
             return messageQueue;
         }
 
+        //顺序消息消费线程
         @Override
         public void run() {
             if (this.processQueue.isDropped()) {
@@ -419,6 +420,7 @@ public class ConsumeMessageOrderlyService implements ConsumeMessageService {
                 return;
             }
 
+            // 通过加锁 将并发的消息顺序进行消费，消息处理的方式没有什么特别的
             final Object objLock = messageQueueLock.fetchLockObject(this.messageQueue);
             synchronized (objLock) {
                 if (MessageModel.BROADCASTING.equals(ConsumeMessageOrderlyService.this.defaultMQPushConsumerImpl.messageModel())

@@ -712,6 +712,7 @@ public class MQClientAPIImpl {
     ) throws RemotingException, MQBrokerException, InterruptedException {
         RemotingCommand request = RemotingCommand.createRequestCommand(RequestCode.PULL_MESSAGE, requestHeader);
 
+        //几种拉消息的方式
         switch (communicationMode) {
             case ONEWAY:
                 assert false;
@@ -735,14 +736,17 @@ public class MQClientAPIImpl {
         final long timeoutMillis,
         final PullCallback pullCallback
     ) throws RemotingException, InterruptedException {
+        // 异步拉取消息
         this.remotingClient.invokeAsync(addr, request, timeoutMillis, new InvokeCallback() {
             @Override
             public void operationComplete(ResponseFuture responseFuture) {
+                // 处理拉取消息的结果
                 RemotingCommand response = responseFuture.getResponseCommand();
                 if (response != null) {
                     try {
                         PullResult pullResult = MQClientAPIImpl.this.processPullResponse(response);
                         assert pullResult != null;
+                        //在这里调用回调函数的onSuccess方法
                         pullCallback.onSuccess(pullResult);
                     } catch (Exception e) {
                         pullCallback.onException(e);
